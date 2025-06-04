@@ -1,124 +1,33 @@
-# Play Sound MCP Server
+# MCP Play Sound Server
 
-A Model Context Protocol (MCP) server that provides audio playback functionality for agentic coding agents. This server enables AI agents to play sound notifications when coding tasks are completed, enhancing the user experience with auditory feedback.
+A Model Context Protocol (MCP) server that provides audio playback functionality for AI agents. This server enables AI agents to play sound notifications when coding tasks are completed.
 
-## 🎯 Project Overview
+> **⚠️ Early Version / Proof of Concept**
+> This is an early implementation currently tested only on macOS. Future versions will support additional platforms.
 
-This MCP server is designed to alert users when coding tasks are completed by playing sound notifications. It supports both default bundled sounds and custom user-specified audio files with intelligent fallback mechanisms.
+## Features
 
-### Key Features
-
-- **Default Sound Notifications**: Bundled default notification sound for immediate use
-- **Custom Audio Support**: Play user-specified audio files via MCP configuration
+- **Audio Notifications**: Play sound alerts when AI tasks complete
+- **Default Sound**: Bundled notification sound for immediate use
+- **Custom Audio**: Support for custom audio files (WAV, MP3, FLAC, OGG, M4A)
 - **Intelligent Fallback**: Automatic fallback to default sound if custom audio fails
-- **Cross-Platform**: Initially targeting macOS with future cross-platform support
-- **Lightweight Dependencies**: Uses minimal, permissive-licensed libraries
-- **Multiple Audio Formats**: Support for WAV, MP3, FLAC, and other common formats
+- **macOS Support**: Currently tested on macOS using AFPlay and SimpleAudio
 
-## 🏗️ Architecture
+## Installation & Setup
 
-The server follows MCP best practices with a clean, modular architecture:
+### Development Setup
 
-```
-play-sound-mcp-server/
-├── src/
-│   ├── play_sound_server/
-│   │   ├── __init__.py
-│   │   ├── server.py          # Main MCP server implementation
-│   │   ├── audio_player.py    # Audio playback logic
-│   │   ├── config.py          # Configuration management
-│   │   └── utils.py           # Utility functions
-│   └── assets/
-│       └── default_notification.wav  # Bundled default sound
-├── tests/
-├── docs/
-├── pyproject.toml
-├── README.md
-└── LICENSE
-```
-
-## 🚀 Quick Start
-
-### Installation
-
+1. **Clone and install**:
 ```bash
-# Using uvx (recommended)
-uvx mcp-server-play-sound
-
-# Using pip
-pip install mcp-server-play-sound
-python -m mcp_server_play_sound
-```
-
-### Claude Desktop Configuration
-
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "play-sound": {
-      "command": "uvx",
-      "args": ["mcp-server-play-sound"],
-      "env": {
-        "CUSTOM_SOUND_PATH": "/path/to/your/notification.wav"
-      }
-    }
-  }
-}
-```
-
-## 🔧 Configuration
-
-The server supports configuration through environment variables:
-
-- `CUSTOM_SOUND_PATH`: Path to custom audio file (optional)
-- `VOLUME_LEVEL`: Playback volume (0.0-1.0, default: 0.8)
-- `ENABLE_FALLBACK`: Enable fallback to default sound (default: true)
-
-## 📖 Documentation
-
-### Python Implementation (Current)
-- [Research Findings](docs/python/research-findings.md) - MCP patterns and Python audio library analysis
-- [Architecture Design](docs/python/architecture.md) - Detailed system design with Python examples
-- [Implementation Plan](docs/python/implementation-plan.md) - 5-week development roadmap
-
-### Cross-Platform Analysis
-- [Configuration Schema](docs/configuration-schema.md) - Complete configuration reference
-- [System Audio Tools](docs/system-audio-tools-analysis.md) - Cross-platform CLI audio tools analysis
-- [Implementation Comparison](docs/implementation-comparison-summary.md) - Python vs Node.js analysis
-
-### Node.js/TypeScript Alternative
-- [Node.js Analysis](docs/nodejs/nodejs-alternatives-analysis.md) - Node.js libraries and implementation patterns
-- [TypeScript Implementation](docs/nodejs/typescript-mcp-implementation.md) - Complete TypeScript implementation guide
-
-## 🛠️ Development
-
-### Prerequisites
-
-- Python 3.10+
-- uv (recommended) or pip
-
-### Setup
-
-```bash
-git clone https://github.com/your-username/play-sound-mcp-server.git
+git clone <repository-url>
 cd play-sound-mcp-server
-uv venv
+python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv pip install -e ".[dev]"
+pip install -e ".[dev]"
 ```
 
-### Configure for Claude Desktop (Development)
-
-**Option 1: Automatic Setup (Recommended)**
-```bash
-# Run the setup script
-python scripts/setup_claude_config.py
-```
-
-**Option 2: Manual Setup**
-Add this to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+2. **Configure Claude Desktop**:
+Add to your `claude_desktop_config.json`:
 
 ```json
 {
@@ -136,64 +45,49 @@ Add this to your Claude Desktop config (`~/Library/Application Support/Claude/cl
 }
 ```
 
-Alternative with direct Python:
+3. **Test**: Restart Claude Desktop and ask: "Can you play a notification sound?"
 
-```json
-{
-  "mcpServers": {
-    "play-sound": {
-      "command": "/path/to/play-sound-mcp-server/.venv/bin/python",
-      "args": ["-m", "mcp_server_play_sound"]
-    }
-  }
-}
-```
+## Configuration
 
-**Test the Setup:**
-1. Restart Claude Desktop
-2. Ask Claude: "Can you play a notification sound?"
-3. Check status: "What's the audio system status?"
+Environment variables (optional):
+- `CUSTOM_SOUND_PATH`: Path to custom audio file
+- `VOLUME_LEVEL`: Playback volume (0.0-1.0, default: 0.8)
+- `ENABLE_FALLBACK`: Enable fallback to default sound (default: true)
+
+## Available Tools
+
+### `play_notification_sound`
+Plays a notification sound to alert the user.
+
+**Parameters:**
+- `custom_sound_path` (optional): Path to custom audio file
+- `message` (optional): Context message for the notification
+
+### `get_audio_status`
+Returns current audio system status and configuration.
+
+### `test_audio_playback`
+Tests audio playback functionality.
+
+**Parameters:**
+- `use_custom` (optional): Test with custom sound if configured
+
+## Development
+
+### Prerequisites
+- Python 3.10+
+- uv (recommended) or pip
 
 ### Testing
-
 ```bash
 pytest tests/
 ```
 
-## 📋 MCP Tools
+## License
 
-The server exposes the following MCP tools:
+MIT License - see the [LICENSE](LICENSE) file for details.
 
-### `play_notification_sound`
-
-Plays a notification sound to alert the user.
-
-**Parameters:**
-- `message` (optional): Custom message to log with the notification
-- `sound_type` (optional): "default" or "custom" (defaults to user configuration)
-
-**Example Usage:**
-```python
-# In an AI agent workflow
-await mcp_client.call_tool("play_notification_sound", {
-    "message": "Code compilation completed successfully!"
-})
-```
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic
 - Python audio library maintainers
-- Open source community
-
----
-
-**Status**: 🚧 In Development - See [Implementation Plan](docs/python/implementation-plan.md) for current progress
