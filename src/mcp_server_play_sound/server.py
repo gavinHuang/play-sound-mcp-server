@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any
 from mcp.server.fastmcp import FastMCP
 
 from .config import ServerConfig
-from .audio_player import AudioPlayer, PlaybackStatus
+from .audio_player import AudioPlayer, PlaybackStatus, AFPlayBackend
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +203,42 @@ class PlaySoundServer:
                     "fallback_used": False,
                     "test_type": "custom" if use_custom else "default",
                 }
+
+        @self.app.tool()
+        async def list_audio_devices() -> Dict[str, Any]:
+            """
+            List available audio output devices on the system.
+
+            Returns information about all available audio output devices,
+            including which one is currently the default.
+
+            Returns:
+                Dictionary containing list of available audio devices with their properties.
+            """
+            logger.info("list_audio_devices called")
+
+            try:
+                from .audio_player import AFPlayBackend
+                devices = await AFPlayBackend.get_available_audio_devices()
+
+                return {
+                    "success": True,
+                    "devices": devices,
+                    "device_count": len(devices),
+                    "current_configured_device": self.config.audio_device,
+                    "message": f"Found {len(devices)} audio output devices"
+                }
+
+            except Exception as e:
+                logger.error(f"Error in list_audio_devices: {e}")
+                return {
+                    "success": False,
+                    "devices": [],
+                    "device_count": 0,
+                    "current_configured_device": self.config.audio_device,
+                    "error": str(e),
+                    "message": f"Failed to list audio devices: {str(e)}"
+                }
     
     def run(self) -> None:
         """Run the MCP server."""
@@ -224,7 +260,7 @@ class PlaySoundServer:
         return {
             "name": "MCP Play Sound Server",
             "version": "0.1.0",
-            "tools_count": 3,  # We have 3 tools: play_notification_sound, get_audio_status, test_audio_playback
+            "tools_count": 4,  # We have 4 tools: play_notification_sound, get_audio_status, test_audio_playback, list_audio_devices
             "backends_available": len(self.audio_player.backends),
             "config": {
                 "volume_level": self.config.volume_level,

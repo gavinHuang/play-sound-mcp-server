@@ -55,9 +55,10 @@ class AudioBackend:
 
 class AFPlayBackend(AudioBackend):
     """macOS afplay backend for audio playback."""
-    
-    def __init__(self):
+
+    def __init__(self, audio_device: Optional[str] = None):
         super().__init__("afplay")
+        self.audio_device = audio_device
     
     def is_available(self) -> bool:
         """Check if afplay is available (macOS only)."""
@@ -76,23 +77,45 @@ class AFPlayBackend(AudioBackend):
             return False
     
     async def play(self, file_path: Path, volume: float = 1.0, timeout: int = 30) -> PlaybackResult:
-        """Play audio using afplay."""
+        """Play audio using afplay with optional device switching."""
         if not file_path.exists():
             return PlaybackResult(
                 status=PlaybackStatus.FILE_NOT_FOUND,
                 message=f"Audio file not found: {file_path}",
                 backend_used=self.name
             )
-        
+
         try:
+            # Handle device switching if specified
+            original_device = None
+            device_switched = False
+
+            if self.audio_device and self.audio_device.strip():
+                if self.audio_device.lower() in ["default", "system default", "default system output device"]:
+                    # Use system default - no switching needed
+                    logger.info("Using system default audio device (explicitly configured)")
+                else:
+                    # Try to switch to specific device
+                    original_device = await self._get_current_audio_device()
+                    logger.info(f"Attempting to switch from '{original_device}' to '{self.audio_device}'")
+                    switch_result = await self._switch_audio_device(self.audio_device)
+                    if switch_result:
+                        device_switched = True
+                        logger.info(f"Successfully switched to '{self.audio_device}'")
+                    else:
+                        logger.warning(f"Could not switch to '{self.audio_device}', using current device '{original_device}'")
+            else:
+                # No audio device configured - use current default
+                logger.info("No AUDIO_DEVICE configured, using current system default")
+
             # Build afplay command with volume control
             cmd = ["afplay"]
             if volume != 1.0:
                 cmd.extend(["-v", str(volume)])
             cmd.append(str(file_path))
-            
+
             logger.debug(f"Executing afplay command: {' '.join(cmd)}")
-            
+
             # Run afplay asynchronously with timeout
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -102,7 +125,7 @@ class AFPlayBackend(AudioBackend):
             
             try:
                 stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), 
+                    process.communicate(),
                     timeout=timeout
                 )
             except asyncio.TimeoutError:
@@ -113,11 +136,23 @@ class AFPlayBackend(AudioBackend):
                     message=f"Audio playback timed out after {timeout} seconds",
                     backend_used=self.name
                 )
-            
+
+            # Restore original audio device if we switched
+            if device_switched and original_device:
+                await self._switch_audio_device(original_device)
+
             if process.returncode == 0:
+                if self.audio_device and self.audio_device.strip():
+                    if self.audio_device.lower() in ["default", "system default", "default system output device"]:
+                        device_msg = " (via system default device)"
+                    else:
+                        device_msg = f" (via {self.audio_device})"
+                else:
+                    device_msg = " (via current system default)"
+
                 return PlaybackResult(
                     status=PlaybackStatus.SUCCESS,
-                    message="Audio played successfully",
+                    message=f"Audio played successfully{device_msg}",
                     backend_used=self.name
                 )
             else:
@@ -127,14 +162,129 @@ class AFPlayBackend(AudioBackend):
                     message=f"afplay failed: {error_msg}",
                     backend_used=self.name
                 )
-                
+
         except Exception as e:
             logger.error(f"Error playing audio with afplay: {e}")
+            # Restore original audio device if we switched and there was an error
+            if device_switched and original_device:
+                try:
+                    await self._switch_audio_device(original_device)
+                except:
+                    pass  # Don't fail if we can't restore
             return PlaybackResult(
                 status=PlaybackStatus.FAILED,
                 message=f"afplay error: {str(e)}",
                 backend_used=self.name
             )
+
+    async def _get_current_audio_device(self) -> Optional[str]:
+        """Get the current audio output device using SwitchAudioSource."""
+        try:
+            # Use SwitchAudioSource to get current device (same as working setup script)
+            process = await asyncio.create_subprocess_exec(
+                "SwitchAudioSource", "-c",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            if process.returncode == 0:
+                current_device = stdout.decode().strip()
+                logger.debug(f"Current audio device: {current_device}")
+                return current_device
+        except Exception as e:
+            logger.debug(f"Could not get current audio device: {e}")
+        return None
+
+    async def _switch_audio_device(self, device_name: str) -> bool:
+        """Switch to the specified audio output device using SwitchAudioSource."""
+        try:
+            # Use SwitchAudioSource (same as working setup script)
+            process = await asyncio.create_subprocess_exec(
+                "SwitchAudioSource", "-s", device_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                logger.info(f"Successfully switched audio device to: {device_name} (via SwitchAudioSource)")
+                return True
+            else:
+                error_msg = stderr.decode().strip() if stderr else "Unknown error"
+                logger.warning(f"Failed to switch audio device to {device_name}: {error_msg}")
+                return False
+
+        except FileNotFoundError:
+            logger.error("SwitchAudioSource not found. Please install with: brew install switchaudio-osx")
+            return False
+        except Exception as e:
+            logger.error(f"Error switching audio device to {device_name}: {e}")
+            return False
+
+    @staticmethod
+    async def get_available_audio_devices() -> list:
+        """Get list of available audio output devices on macOS."""
+        devices = []
+        try:
+            # Use system_profiler to get audio devices
+            process = await asyncio.create_subprocess_exec(
+                "system_profiler", "SPAudioDataType",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                output = stdout.decode()
+                lines = output.split('\n')
+
+                current_device = None
+                in_devices_section = False
+
+                for line in lines:
+                    stripped = line.strip()
+
+                    # Check if we're in the Devices section
+                    if stripped == "Devices:":
+                        in_devices_section = True
+                        continue
+
+                    if not in_devices_section:
+                        continue
+
+                    # Device names end with ':' and are not indented much
+                    if (stripped.endswith(':') and
+                        not stripped.startswith(('Input', 'Output', 'Current', 'Manufacturer', 'Transport', 'Default')) and
+                        len(line) - len(line.lstrip()) <= 8):  # Not too deeply indented
+
+                        # Save previous device if it was an output device
+                        if current_device and current_device.get("is_output"):
+                            devices.append(current_device)
+
+                        # Start new device
+                        device_name = stripped.rstrip(':').strip()
+                        if device_name and device_name != "Devices":
+                            current_device = {"name": device_name, "is_output": False, "is_default": False}
+
+                    elif current_device:
+                        # Check for output device indicators
+                        if "Output Channels:" in stripped:
+                            current_device["is_output"] = True
+                        elif "Default Output Device: Yes" in stripped:
+                            current_device["is_default"] = True
+                            current_device["is_output"] = True
+                        elif "Default System Output Device: Yes" in stripped:
+                            current_device["is_default"] = True
+                            current_device["is_output"] = True
+
+                # Add the last device if it's an output device
+                if current_device and current_device.get("is_output"):
+                    devices.append(current_device)
+
+        except Exception as e:
+            logger.error(f"Error getting audio devices: {e}")
+
+        return devices
 
 
 class SimpleAudioBackend(AudioBackend):
@@ -230,17 +380,18 @@ class AudioPlayer:
     def _setup_backends(self) -> None:
         """Set up available audio backends based on configuration and platform."""
         # Always try AFPlay first on macOS (most reliable)
-        afplay = AFPlayBackend()
+        afplay = AFPlayBackend(audio_device=getattr(self.config, 'audio_device', None))
         if afplay.is_available():
             self.backends.append(afplay)
-            logger.debug("AFPlay backend available")
-        
+            device_info = f" (device: {self.config.audio_device})" if getattr(self.config, 'audio_device', None) else ""
+            logger.debug(f"AFPlay backend available{device_info}")
+
         # Add SimpleAudio as fallback
         simpleaudio = SimpleAudioBackend()
         if simpleaudio.is_available():
             self.backends.append(simpleaudio)
             logger.debug("SimpleAudio backend available")
-        
+
         if not self.backends:
             logger.warning("No audio backends available!")
     

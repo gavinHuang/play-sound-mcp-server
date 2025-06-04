@@ -27,6 +27,7 @@ class ServerConfig:
     custom_sound_path: Optional[str] = None
     volume_level: float = 0.8
     enable_fallback: bool = True
+    audio_device: Optional[str] = None
     
     # Advanced configuration
     max_file_size_mb: int = 10
@@ -54,6 +55,7 @@ class ServerConfig:
             custom_sound_path=os.getenv('CUSTOM_SOUND_PATH'),
             volume_level=cls._parse_float('VOLUME_LEVEL', 0.8),
             enable_fallback=cls._parse_bool('ENABLE_FALLBACK', True),
+            audio_device=os.getenv('AUDIO_DEVICE'),
             max_file_size_mb=cls._parse_int('MAX_FILE_SIZE_MB', 10),
             playback_timeout_seconds=cls._parse_int('PLAYBACK_TIMEOUT_SECONDS', 30),
             audio_backend=os.getenv('AUDIO_BACKEND', 'auto'),

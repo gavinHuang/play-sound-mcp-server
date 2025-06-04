@@ -53,6 +53,7 @@ Environment variables (optional):
 - `CUSTOM_SOUND_PATH`: Path to custom audio file
 - `VOLUME_LEVEL`: Playback volume (0.0-1.0, default: 0.8)
 - `ENABLE_FALLBACK`: Enable fallback to default sound (default: true)
+- `AUDIO_DEVICE`: Specific audio output device name (e.g., "Mac Studio Speakers")
 
 ## Available Tools
 
@@ -71,6 +72,14 @@ Tests audio playback functionality.
 
 **Parameters:**
 - `use_custom` (optional): Test with custom sound if configured
+
+### `list_audio_devices`
+Lists all available audio output devices on the system.
+
+**Returns:**
+- List of available audio devices with their properties
+- Current configured device (if any)
+- Default device information
 
 ## Development
 
