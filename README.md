@@ -78,10 +78,19 @@ The server supports configuration through environment variables:
 
 ## 📖 Documentation
 
-- [Research Findings](docs/research-findings.md) - MCP patterns and audio library analysis
-- [Architecture Design](docs/architecture.md) - Detailed system design
-- [Implementation Plan](docs/implementation-plan.md) - Development roadmap
+### Python Implementation (Current)
+- [Research Findings](docs/python/research-findings.md) - MCP patterns and Python audio library analysis
+- [Architecture Design](docs/python/architecture.md) - Detailed system design with Python examples
+- [Implementation Plan](docs/python/implementation-plan.md) - 5-week development roadmap
+
+### Cross-Platform Analysis
 - [Configuration Schema](docs/configuration-schema.md) - Complete configuration reference
+- [System Audio Tools](docs/system-audio-tools-analysis.md) - Cross-platform CLI audio tools analysis
+- [Implementation Comparison](docs/implementation-comparison-summary.md) - Python vs Node.js analysis
+
+### Node.js/TypeScript Alternative
+- [Node.js Analysis](docs/nodejs/nodejs-alternatives-analysis.md) - Node.js libraries and implementation patterns
+- [TypeScript Implementation](docs/nodejs/typescript-mcp-implementation.md) - Complete TypeScript implementation guide
 
 ## 🛠️ Development
 
@@ -142,4 +151,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status**: 🚧 In Development - See [Implementation Plan](docs/implementation-plan.md) for current progress
+**Status**: 🚧 In Development - See [Implementation Plan](docs/python/implementation-plan.md) for current progress
