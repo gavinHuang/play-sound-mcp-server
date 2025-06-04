@@ -109,6 +109,51 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e ".[dev]"
 ```
 
+### Configure for Claude Desktop (Development)
+
+**Option 1: Automatic Setup (Recommended)**
+```bash
+# Run the setup script
+python scripts/setup_claude_config.py
+```
+
+**Option 2: Manual Setup**
+Add this to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "play-sound": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/your/play-sound-mcp-server",
+        "run",
+        "mcp-server-play-sound"
+      ]
+    }
+  }
+}
+```
+
+Alternative with direct Python:
+
+```json
+{
+  "mcpServers": {
+    "play-sound": {
+      "command": "/path/to/play-sound-mcp-server/.venv/bin/python",
+      "args": ["-m", "mcp_server_play_sound"]
+    }
+  }
+}
+```
+
+**Test the Setup:**
+1. Restart Claude Desktop
+2. Ask Claude: "Can you play a notification sound?"
+3. Check status: "What's the audio system status?"
+
 ### Testing
 
 ```bash

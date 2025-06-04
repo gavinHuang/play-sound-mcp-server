@@ -5,10 +5,8 @@ This module provides the main entry point for running the MCP server
 that handles audio playback notifications for AI agents.
 """
 
-import asyncio
 import logging
 import sys
-from typing import Optional
 
 from .config import ServerConfig, ConfigurationError
 from .server import PlaySoundServer
@@ -43,7 +41,7 @@ def main() -> None:
         server = PlaySoundServer(config)
         
         # Run the server
-        asyncio.run(server.run())
+        server.run()
         
     except ConfigurationError as e:
         print(f"Configuration Error: {e}", file=sys.stderr)

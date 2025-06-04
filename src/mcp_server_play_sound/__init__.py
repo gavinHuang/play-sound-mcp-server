@@ -10,9 +10,9 @@ __version__ = "0.1.0"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
 
-from .server import PlaySoundServer
 from .config import ServerConfig
 from .audio_player import AudioPlayer, PlaybackResult
+from .server import PlaySoundServer
 
 __all__ = [
     "PlaySoundServer",
