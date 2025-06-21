@@ -365,6 +365,79 @@ class SimpleAudioBackend(AudioBackend):
             )
 
 
+class WinSoundBackend(AudioBackend):
+    """Windows winsound backend for audio playback."""
+    
+    def __init__(self):
+        super().__init__("winsound")
+    
+    def is_available(self) -> bool:
+        """Check if winsound is available (Windows only)."""
+        if sys.platform != "win32":
+            return False
+        
+        try:
+            import winsound
+            return True
+        except ImportError:
+            return False
+    
+    async def play(self, file_path: Path, volume: float = 1.0, timeout: int = 30) -> PlaybackResult:
+        """Play audio using Windows winsound."""
+        if not file_path.exists():
+            return PlaybackResult(
+                status=PlaybackStatus.FILE_NOT_FOUND,
+                message=f"Audio file not found: {file_path}",
+                backend_used=self.name
+            )
+
+        try:
+            import winsound
+            
+            # Run in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(executor, self._play_sync, file_path, winsound),
+                    timeout=timeout
+                )
+            return result
+            
+        except asyncio.TimeoutError:
+            return PlaybackResult(
+                status=PlaybackStatus.TIMEOUT,
+                message=f"Audio playback timed out after {timeout} seconds",
+                backend_used=self.name
+            )
+        except Exception as e:
+            logger.error(f"Error playing audio with winsound: {e}")
+            return PlaybackResult(
+                status=PlaybackStatus.FAILED,
+                message=f"winsound error: {str(e)}",
+                backend_used=self.name
+            )
+    
+    def _play_sync(self, file_path: Path, winsound) -> PlaybackResult:
+        """Synchronous audio playback for thread execution."""
+        try:
+            # Use winsound to play the WAV file
+            # winsound.SND_FILENAME flag indicates file path is provided
+            # winsound.SND_ASYNC would be non-blocking, but we want blocking behavior
+            winsound.PlaySound(str(file_path), winsound.SND_FILENAME)
+            
+            return PlaybackResult(
+                status=PlaybackStatus.SUCCESS,
+                message="Audio played successfully",
+                backend_used=self.name
+            )
+        except Exception as e:
+            return PlaybackResult(
+                status=PlaybackStatus.FAILED,
+                message=f"winsound playback error: {str(e)}",
+                backend_used=self.name
+            )
+
+
 class AudioPlayer:
     """Main audio player with multiple backend support and fallback."""
     
@@ -373,8 +446,7 @@ class AudioPlayer:
         self.config = config
         self.backends = []
         self._setup_backends()
-        self._default_sound_path = self._get_default_sound_path()
-        
+        self._default_sound_path = self._get_default_sound_path()        
         logger.info(f"AudioPlayer initialized with {len(self.backends)} available backends")
     
     def _setup_backends(self) -> None:
@@ -386,7 +458,13 @@ class AudioPlayer:
             device_info = f" (device: {self.config.audio_device})" if getattr(self.config, 'audio_device', None) else ""
             logger.debug(f"AFPlay backend available{device_info}")
 
-        # Add SimpleAudio as fallback
+        # Try WinSound first on Windows (built-in, most reliable)
+        winsound = WinSoundBackend()
+        if winsound.is_available():
+            self.backends.append(winsound)
+            logger.debug("WinSound backend available")
+
+        # Add SimpleAudio as cross-platform fallback
         simpleaudio = SimpleAudioBackend()
         if simpleaudio.is_available():
             self.backends.append(simpleaudio)

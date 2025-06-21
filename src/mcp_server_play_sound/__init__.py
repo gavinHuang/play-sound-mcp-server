@@ -12,11 +12,20 @@ __email__ = "your.email@example.com"
 
 from .config import ServerConfig
 from .audio_player import AudioPlayer, PlaybackResult
-from .server import PlaySoundServer
 
-__all__ = [
-    "PlaySoundServer",
-    "ServerConfig", 
-    "AudioPlayer",
-    "PlaybackResult",
-]
+# Only import server if mcp is available (to avoid import errors during testing)
+try:
+    from .server import PlaySoundServer
+    __all__ = [
+        "PlaySoundServer",
+        "ServerConfig", 
+        "AudioPlayer",
+        "PlaybackResult",
+    ]
+except ImportError:
+    # MCP dependencies not available, skip server import
+    __all__ = [
+        "ServerConfig", 
+        "AudioPlayer",
+        "PlaybackResult",
+    ]
