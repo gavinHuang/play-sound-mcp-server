@@ -7,14 +7,14 @@ import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from pathlib import Path
 
-from mcp_server_play_sound.audio_player import (
+from notification_sound_windows.audio_player import (
     AudioPlayer, 
     AFPlayBackend, 
     SimpleAudioBackend,
     PlaybackStatus, 
     PlaybackResult
 )
-from mcp_server_play_sound.config import ServerConfig
+from notification_sound_windows.config import ServerConfig
 
 
 class TestAFPlayBackend:

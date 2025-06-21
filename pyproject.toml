@@ -3,32 +3,35 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mcp-server-play-sound"
+name = "notification-sound-windows"
 version = "0.1.0"
-description = "Model Context Protocol server for audio playback notifications"
+description = "Windows notification sound player for MCP servers"
 readme = "README.md"
 license = "MIT"
 authors = [
-    { name = "Your Name", email = "your.email@example.com" }
+    { name = "Package Author", email = "author@example.com" }
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Multimedia :: Sound/Audio :: Players",
+    "Topic :: Communications",
 ]
-keywords = ["mcp", "model-context-protocol", "audio", "notifications", "ai-agents"]
+keywords = ["notification", "sound", "windows", "audio", "mcp"]
 requires-python = ">=3.10"
 
 dependencies = [
     "mcp>=1.2.0",
     "fastmcp>=0.1.0",
     "pydub>=0.25.1",
+    "pywin32>=306; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
@@ -50,16 +53,16 @@ test = [
 ]
 
 [project.scripts]
-mcp-server-play-sound = "mcp_server_play_sound.__main__:main"
+notification-sound-windows = "notification_sound_windows.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/your-username/play-sound-mcp-server"
-Repository = "https://github.com/your-username/play-sound-mcp-server"
-Issues = "https://github.com/your-username/play-sound-mcp-server/issues"
-Documentation = "https://github.com/your-username/play-sound-mcp-server/blob/main/README.md"
+Homepage = "https://github.com/your-username/notification-sound-windows"
+Repository = "https://github.com/your-username/notification-sound-windows"
+Issues = "https://github.com/your-username/notification-sound-windows/issues"
+Documentation = "https://github.com/your-username/notification-sound-windows/blob/main/README.md"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mcp_server_play_sound"]
+packages = ["src/notification_sound_windows"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -139,7 +142,7 @@ minversion = "7.0"
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=mcp_server_play_sound",
+    "--cov=notification_sound_windows",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",

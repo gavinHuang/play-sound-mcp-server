@@ -1,17 +1,17 @@
-# MCP Play Sound Server
+# Notification Sound Windows
 
-A Model Context Protocol (MCP) server that provides audio playback functionality for AI agents. This server enables AI agents to play sound notifications when coding tasks are completed.
+A Windows notification sound player for Model Context Protocol (MCP) servers. This package provides simple audio playback functionality for Windows systems, enabling AI agents and applications to play sound notifications.
 
-> **⚠️ Early Version / Proof of Concept**
-> This is an early implementation currently tested only on macOS. Future versions will support additional platforms.
+> **✨ Windows Focused**
+> This package is specifically designed and optimized for Windows systems, providing reliable audio notification capabilities.
 
 ## Features
 
-- **Audio Notifications**: Play sound alerts when AI tasks complete
+- **Windows Audio Support**: Native Windows sound playback using system APIs
 - **Default Sound**: Bundled notification sound for immediate use
 - **Custom Audio**: Support for custom audio files (WAV, MP3, FLAC, OGG, M4A)
 - **Intelligent Fallback**: Automatic fallback to default sound if custom audio fails
-- **macOS Support**: Currently tested on macOS using AFPlay and SimpleAudio
+- **Easy Integration**: Simple API for integration with MCP servers and applications
 
 ## Installation & Setup
 
@@ -20,9 +20,9 @@ A Model Context Protocol (MCP) server that provides audio playback functionality
 1. **Clone and install**:
 ```bash
 git clone <repository-url>
-cd play-sound-mcp-server
+cd notification-sound-windows
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+.venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
@@ -32,14 +32,12 @@ Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "play-sound": {
+    "notification-sound": {
       "command": "uv",
       "args": [
-        "--directory",
-        "/path/to/your/play-sound-mcp-server",
-        "run",
-        "mcp-server-play-sound"
-      ]
+              "run",
+              "mcp-server-play-sound"
+          ],
     }
   }
 }

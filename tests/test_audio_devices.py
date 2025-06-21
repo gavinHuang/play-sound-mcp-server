@@ -19,8 +19,8 @@ import argparse
 import subprocess
 sys.path.insert(0, '../src')
 
-from mcp_server_play_sound.config import ServerConfig
-from mcp_server_play_sound.audio_player import AudioPlayer, AFPlayBackend
+from notification_sound_windows.config import ServerConfig
+from notification_sound_windows.audio_player import AudioPlayer, AFPlayBackend
 
 async def get_current_device():
     """Get the current default audio device."""

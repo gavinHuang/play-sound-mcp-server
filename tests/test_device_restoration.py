@@ -9,8 +9,8 @@ import os
 import subprocess
 sys.path.insert(0, '../src')
 
-from mcp_server_play_sound.config import ServerConfig
-from mcp_server_play_sound.audio_player import AudioPlayer
+from notification_sound_windows.config import ServerConfig
+from notification_sound_windows.audio_player import AudioPlayer
 
 async def test_device_restoration():
     """Test that device switching and restoration works correctly."""

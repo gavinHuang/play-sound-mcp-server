@@ -7,7 +7,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch
 
-from mcp_server_play_sound.config import ServerConfig, ConfigurationError
+from notification_sound_windows.config import ServerConfig, ConfigurationError
 
 
 class TestServerConfig:
