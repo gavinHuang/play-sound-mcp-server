@@ -96,9 +96,9 @@ class AFPlayBackend(AudioBackend):
                     logger.info("Using system default audio device (explicitly configured)")
                 else:
                     # Try to switch to specific device
-                    original_device = self._get_current_audio_device_sync()
+                    original_device = await self._get_current_audio_device()
                     logger.info(f"Attempting to switch from '{original_device}' to '{self.audio_device}'")
-                    switch_result = self._switch_audio_device_sync(self.audio_device)
+                    switch_result = await self._switch_audio_device(self.audio_device)
                     if switch_result:
                         device_switched = True
                         logger.info(f"Successfully switched to '{self.audio_device}'")
@@ -116,25 +116,32 @@ class AFPlayBackend(AudioBackend):
 
             logger.debug(f"Executing afplay command: {' '.join(cmd)}")
 
-            # Run afplay synchronously with timeout (fixes VS Code MCP issues)
-            loop = asyncio.get_event_loop()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                try:
-                    result = await asyncio.wait_for(
-                        loop.run_in_executor(executor, self._run_afplay_sync, cmd, timeout),
-                        timeout=timeout + 5  # Add buffer for executor overhead
-                    )
-                    stdout, stderr, returncode = result
-                except asyncio.TimeoutError:
-                    return PlaybackResult(
-                        status=PlaybackStatus.TIMEOUT,
-                        message=f"Audio playback timed out after {timeout} seconds",
-                        backend_used=self.name
-                    )            # Restore original audio device if we switched
-            if device_switched and original_device:
-                self._switch_audio_device_sync(original_device)
+            # Run afplay asynchronously with timeout
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                return PlaybackResult(
+                    status=PlaybackStatus.TIMEOUT,
+                    message=f"Audio playback timed out after {timeout} seconds",
+                    backend_used=self.name
+                )
 
-            if returncode == 0:
+            # Restore original audio device if we switched
+            if device_switched and original_device:
+                await self._switch_audio_device(original_device)
+
+            if process.returncode == 0:
                 if self.audio_device and self.audio_device.strip():
                     if self.audio_device.lower() in ["default", "system default", "default system output device"]:
                         device_msg = " (via system default device)"
@@ -161,7 +168,7 @@ class AFPlayBackend(AudioBackend):
             # Restore original audio device if we switched and there was an error
             if device_switched and original_device:
                 try:
-                    self._switch_audio_device_sync(original_device)
+                    await self._switch_audio_device(original_device)
                 except:
                     pass  # Don't fail if we can't restore
             return PlaybackResult(
@@ -170,53 +177,40 @@ class AFPlayBackend(AudioBackend):
                 backend_used=self.name
             )
 
-    def _run_afplay_sync(self, cmd: list, timeout: int) -> tuple:
-        """Run afplay command synchronously for thread executor."""
+    async def _get_current_audio_device(self) -> Optional[str]:
+        """Get the current audio output device using SwitchAudioSource."""
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                timeout=timeout,
-                text=False
+            # Use SwitchAudioSource to get current device (same as working setup script)
+            process = await asyncio.create_subprocess_exec(
+                "SwitchAudioSource", "-c",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
-            return result.stdout, result.stderr, result.returncode
-        except subprocess.TimeoutExpired:
-            raise TimeoutError(f"Command timed out after {timeout} seconds")
-        except Exception as e:
-            raise RuntimeError(f"Command failed: {e}")
-
-    def _get_current_audio_device_sync(self) -> Optional[str]:
-        """Get the current audio output device using SwitchAudioSource (synchronous)."""
-        try:
-            result = subprocess.run(
-                ["SwitchAudioSource", "-c"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            if result.returncode == 0:
-                current_device = result.stdout.strip()
+            stdout, stderr = await process.communicate()
+            if process.returncode == 0:
+                current_device = stdout.decode().strip()
                 logger.debug(f"Current audio device: {current_device}")
                 return current_device
         except Exception as e:
             logger.debug(f"Could not get current audio device: {e}")
         return None
 
-    def _switch_audio_device_sync(self, device_name: str) -> bool:
-        """Switch to the specified audio output device using SwitchAudioSource (synchronous)."""
+    async def _switch_audio_device(self, device_name: str) -> bool:
+        """Switch to the specified audio output device using SwitchAudioSource."""
         try:
-            result = subprocess.run(
-                ["SwitchAudioSource", "-s", device_name],
-                capture_output=True,
-                text=True,
-                timeout=10
+            # Use SwitchAudioSource (same as working setup script)
+            process = await asyncio.create_subprocess_exec(
+                "SwitchAudioSource", "-s", device_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
+            stdout, stderr = await process.communicate()
 
-            if result.returncode == 0:
+            if process.returncode == 0:
                 logger.info(f"Successfully switched audio device to: {device_name} (via SwitchAudioSource)")
                 return True
             else:
-                error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+                error_msg = stderr.decode().strip() if stderr else "Unknown error"
                 logger.warning(f"Failed to switch audio device to {device_name}: {error_msg}")
                 return False
 
@@ -225,26 +219,23 @@ class AFPlayBackend(AudioBackend):
             return False
         except Exception as e:
             logger.error(f"Error switching audio device to {device_name}: {e}")
-            return False    @staticmethod
+            return False
+
+    @staticmethod
     async def get_available_audio_devices() -> list:
         """Get list of available audio output devices on macOS."""
         devices = []
         try:
-            # Use system_profiler to get audio devices (run in thread executor)
-            loop = asyncio.get_event_loop()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                result = await loop.run_in_executor(
-                    executor, 
-                    lambda: subprocess.run(
-                        ["system_profiler", "SPAudioDataType"],
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                )
+            # Use system_profiler to get audio devices
+            process = await asyncio.create_subprocess_exec(
+                "system_profiler", "SPAudioDataType",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
 
-            if result.returncode == 0:
-                output = result.stdout
+            if process.returncode == 0:
+                output = stdout.decode()
                 lines = output.split('\n')
 
                 current_device = None
@@ -310,7 +301,6 @@ class SimpleAudioBackend(AudioBackend):
             self._simpleaudio = simpleaudio
             return True
         except ImportError:
-            logger.warning("simpleaudio not available - install with: pip install simpleaudio")
             return False
     
     async def play(self, file_path: Path, volume: float = 1.0, timeout: int = 30) -> PlaybackResult:
@@ -331,7 +321,7 @@ class SimpleAudioBackend(AudioBackend):
             )
         
         try:
-            # Run in thread pool to avoid blocking (fixes VS Code MCP issues)
+            # Run in thread pool to avoid blocking
             loop = asyncio.get_event_loop()
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 result = await asyncio.wait_for(
@@ -357,14 +347,6 @@ class SimpleAudioBackend(AudioBackend):
     def _play_sync(self, file_path: Path, volume: float) -> PlaybackResult:
         """Synchronous audio playback for thread execution."""
         try:
-            # Only support WAV files for simpleaudio
-            if file_path.suffix.lower() != '.wav':
-                return PlaybackResult(
-                    status=PlaybackStatus.UNSUPPORTED_FORMAT,
-                    message=f"simpleaudio only supports WAV files, got: {file_path.suffix}",
-                    backend_used=self.name
-                )
-            
             # Load and play WAV file
             wave_obj = self._simpleaudio.WaveObject.from_wave_file(str(file_path))
             play_obj = wave_obj.play()
@@ -379,85 +361,6 @@ class SimpleAudioBackend(AudioBackend):
             return PlaybackResult(
                 status=PlaybackStatus.FAILED,
                 message=f"simpleaudio playback error: {str(e)}",
-                backend_used=self.name
-            )
-
-
-class WindowsAudioBackend(AudioBackend):
-    """Windows audio backend using winsound for audio playback."""
-    
-    def __init__(self):
-        super().__init__("winsound")
-    
-    def is_available(self) -> bool:
-        """Check if winsound is available (Windows only)."""
-        if sys.platform != "win32":
-            return False
-        
-        try:
-            import winsound
-            return True
-        except ImportError:
-            return False
-    
-    async def play(self, file_path: Path, volume: float = 1.0, timeout: int = 30) -> PlaybackResult:
-        """Play audio using Windows winsound."""
-        if not file_path.exists():
-            return PlaybackResult(
-                status=PlaybackStatus.FILE_NOT_FOUND,
-                message=f"Audio file not found: {file_path}",
-                backend_used=self.name
-            )
-
-        try:
-            # Run in thread pool to avoid blocking (fixes VS Code MCP issues)
-            loop = asyncio.get_event_loop()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                result = await asyncio.wait_for(
-                    loop.run_in_executor(executor, self._play_sync, file_path, volume),
-                    timeout=timeout
-                )
-            return result
-            
-        except asyncio.TimeoutError:
-            return PlaybackResult(
-                status=PlaybackStatus.TIMEOUT,
-                message=f"Audio playback timed out after {timeout} seconds",
-                backend_used=self.name
-            )
-        except Exception as e:
-            logger.error(f"Error playing audio with winsound: {e}")
-            return PlaybackResult(
-                status=PlaybackStatus.FAILED,
-                message=f"winsound error: {str(e)}",
-                backend_used=self.name
-            )
-    
-    def _play_sync(self, file_path: Path, volume: float) -> PlaybackResult:
-        """Synchronous audio playback for thread execution."""
-        try:
-            import winsound
-            
-            # Only support WAV files for winsound
-            if file_path.suffix.lower() != '.wav':
-                return PlaybackResult(
-                    status=PlaybackStatus.UNSUPPORTED_FORMAT,
-                    message=f"winsound only supports WAV files, got: {file_path.suffix}",
-                    backend_used=self.name
-                )
-            
-            # Play WAV file using winsound
-            winsound.PlaySound(str(file_path), winsound.SND_FILENAME)
-            
-            return PlaybackResult(
-                status=PlaybackStatus.SUCCESS,
-                message="Audio played successfully (Windows)",
-                backend_used=self.name
-            )
-        except Exception as e:
-            return PlaybackResult(
-                status=PlaybackStatus.FAILED,
-                message=f"winsound playback error: {str(e)}",
                 backend_used=self.name
             )
 
@@ -488,12 +391,6 @@ class AudioPlayer:
         if simpleaudio.is_available():
             self.backends.append(simpleaudio)
             logger.debug("SimpleAudio backend available")
-
-        # Add WindowsAudioBackend on Windows
-        windows_audio = WindowsAudioBackend()
-        if windows_audio.is_available():
-            self.backends.append(windows_audio)
-            logger.debug("WindowsAudio backend available")
 
         if not self.backends:
             logger.warning("No audio backends available!")
